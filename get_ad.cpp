@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 /* get_ad.cpp Sept 19 2011 - 
+=======
+/* get_ad.cpp Sept 19 2011 - present
+>>>>>>> a50859a7a1537558ec51716c89cb2c3dd7d90e2c
 Console application (Linux, Windows). 
 
 Based on dataset-class
@@ -433,4 +437,7 @@ int main(int argc, char* argv[])
 	cout << "Done." << endl;
 	return 0;
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> a50859a7a1537558ec51716c89cb2c3dd7d90e2c
