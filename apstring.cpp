@@ -1,4 +1,6 @@
 // *******************************************************************
+//	Revised: May 5, 2014		sprintf() removed
+//
 //	Revised: Dec 28, 2001		(int size, char ch) constructor added
 //
 //	Revised: March 4, 2001		getline is completely changed and now 
@@ -28,6 +30,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <ctype.h>
+//#include <cstdio>
 #include "apstring.h"
 
 
@@ -145,9 +148,16 @@ const apstring& apstring::operator = (const char * s)
 
 const apstring& apstring::operator =(int i)
 {
-	char s[40];
-	sprintf(s, "%d", i);
-
+	//char s[10];
+	//sprintf(s, "%d", i);	//05.05.2014
+	apstring s;
+	int d = i;
+	for(;;)
+	{
+		s = char (48 + (d % 10)) + s;
+		d /= 10;
+		if (d == 0) break;
+	}
 	(*this) = s;
 
 	return (*this);
