@@ -1,4 +1,4 @@
-/* get_ad.cpp Sept 19 2011 - present
+/* get_ad.cpp Sept 19 2011 - 
 Console application (Linux, Windows). 
 
 Based on dataset-class
@@ -7,7 +7,10 @@ TODO:
 DONE: 
 
 (history list of recent changes)
-1.0			Sep 20 2011		Basic version completed
+1.20			July 20 2013	output expanded to report modeling set stats and all settings
+								'-AV=' and '-SD=' command keys added to allow recycling of modeling stats
+
+1.01			Sep 20 2011		Basic version completed
 			
 Tested with:
 MRP5x_moe_n_mdl1 -K=5 -F=A -2PART -Z=0.5
@@ -17,9 +20,9 @@ MRP5x_moe_n_mdl1 -4PRED=MRP5x_moe_n_ext1.xa -K=3 -F=H -2PART
 
 #include "dataset.h"
 
-#define Version "1.0"
+#define Version "1.20"
 #define COMMENT		"#"
-#define	AD_FILE		".ad"
+#define	AD_FILE		".gad"
 
 //Global variables ------------------------------------
 //distance metric
@@ -27,7 +30,7 @@ REALNUM_TYPE METRIC_V = 2.0;
 UNSIGNED_1B_TYPE METRIC_K = 0;
 
 //AD settings, etc.
-REALNUM_TYPE AD_dist = INVALID, AD_Z = 1.0;
+REALNUM_TYPE AD_dist = INVALID, AD_Z = 1.0, AD_AV = INVALID, AD_SD = INVALID;
 UNSIGNED_1B_TYPE AD_K = 1, AD_MODE = 1;
 bool D1dist = false, ExplicitReport = false;
 
@@ -215,6 +218,24 @@ void ProcessArgumentString(STRING_TYPE &S)
 		if (S[intU + 3] == 'L') AD_MODE = 1; //default
 		return;
 	}
+
+	intU = S.find ("-AV=");
+	if (intU == 0)
+	{
+		stX = S.substr(intU + 4, S.length());
+		rtX = atof( stX.c_str() );
+		AD_AV  = rtX;
+		return;
+	}
+
+	intU = S.find ("-SD=");
+	if (intU == 0)
+	{
+		stX = S.substr(intU + 4, S.length());
+		rtX = atof( stX.c_str() );
+		AD_SD  = rtX;
+		return;
+	}
 }
 
 bool VerifyDescriptors(dataset &A, dataset &B)
@@ -317,14 +338,42 @@ int main(int argc, char* argv[])
 
 	QSAR qsarT;
 	apvector<REALNUM_TYPE> knn_stats, dsx, kneib;
-	if (D1dist)
-		datasetX.get_NearNeibDistances(knn_stats, AD_K, 0, 2);
+	if ((AD_AV > 0) && (AD_SD > 0))
+	{//use supplied data instead
+		knn_stats.resize(3);
+		knn_stats[0] = AD_AV;
+		knn_stats[2] = AD_SD;
+	}
 	else
-		datasetX.get_NearNeibDistances(knn_stats, AD_K, 0, 3);
+	{//recalculates distance matrix of the modeling set to estimate AD
+		if (D1dist)
+			datasetX.get_NearNeibDistances(knn_stats, AD_K, 0, 2);
+		else
+			datasetX.get_NearNeibDistances(knn_stats, AD_K, 0, 3);
+	}
 	
 	REALNUM_TYPE mnd, f = knn_stats[0] + AD_Z*knn_stats[2];
 	if (D1dist) AD_dist = f; else AD_dist = sqrt(f);
-	foAD << COMMENT << "AD cut-off=" << AD_dist << endl;
+	foAD << COMMENT << "AD.CUTOFF=" << AD_dist << TAB << "AD.MODE=";	
+	switch (AD_MODE)
+	{		
+		case 0:	foAD << "mean.dist(NNs)"; break;
+		case 2: foAD << "1/2NNs"; break;
+		case 3: foAD << "allNNs"; break;
+		case 1:	default:	foAD << "1NN"; break;
+	}
+	foAD << TAB << "DIST.MODE=" << (D1dist ? "REGULAR" : "SQUARED");
+	foAD << TAB << "MEAN=" << knn_stats[0] << TAB << "SD=" << knn_stats[2] << TAB << "#NN=" << UNSIGNED_2B_TYPE(AD_K);	
+	foAD << TAB << "DIST.METRIC=";
+	switch (METRIC_K)
+	{		
+		case 1:	foAD << "Cosine"; break;
+		case 2: foAD << "Correlation"; break;
+		case 3: foAD << "Tanimoto"; break;
+		case 0:	default:	foAD << "Minkowski"; break;
+	}
+	foAD << TAB << "DIST.METRIC_COEF=" << METRIC_V << endl;
+
 	foAD << "ID\tSID\tDist\tZ-score\tWITHIN_AD" << endl;
 	char buff[200] = "";	//to format numerical output
 
@@ -394,8 +443,8 @@ int main(int argc, char* argv[])
 
 		//calculate actual z-score (can be compared with the AD_Z cutoff to define "in" or "out" of AD)
 		if (D1dist) f = mnd; else f = mnd*mnd;		
-		f -= knn_stats[2];
-		f /= knn_stats[0];
+		f -= knn_stats[0];
+		f /= knn_stats[2];
 		
 		stJ = pD->get_sid(i);
 		sprintf(buff, "%d\t%s\t%6.3f\t%6.3f\t%1d", i, stJ.c_str(), mnd, f, UNSIGNED_1B_TYPE(mnd < AD_dist));
